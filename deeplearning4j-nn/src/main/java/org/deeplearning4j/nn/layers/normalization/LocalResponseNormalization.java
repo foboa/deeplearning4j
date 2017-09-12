@@ -179,11 +179,6 @@ public class LocalResponseNormalization
     }
 
     @Override
-    public Layer transpose() {
-        throw new UnsupportedOperationException("Not supported " + layerId());
-    }
-
-    @Override
     public boolean isPretrainLayer() {
         return false;
     }
