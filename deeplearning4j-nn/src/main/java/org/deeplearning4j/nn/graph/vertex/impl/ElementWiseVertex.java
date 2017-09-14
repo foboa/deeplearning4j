@@ -20,6 +20,8 @@ package org.deeplearning4j.nn.graph.vertex.impl;
 
 import org.deeplearning4j.nn.api.Layer;
 import org.deeplearning4j.nn.api.MaskState;
+import org.deeplearning4j.nn.api.activations.Activations;
+import org.deeplearning4j.nn.api.activations.ActivationsFactory;
 import org.deeplearning4j.nn.gradient.Gradient;
 import org.deeplearning4j.nn.graph.ComputationGraph;
 import org.deeplearning4j.nn.graph.vertex.BaseGraphVertex;
@@ -55,37 +57,44 @@ public class ElementWiseVertex extends BaseGraphVertex {
     }
 
     @Override
-    public INDArray activate(boolean training) {
+    public Activations activate(boolean training) {
         if (!canDoForward())
             throw new IllegalStateException("Cannot do forward pass: inputs not set");
 
         nInForwardPass = inputs.length;
         if (inputs.length == 1)
-            return inputs[0];
+            return ActivationsFactory.getInstance().create(inputs[0], null, null);  //TODO masks
 
+        INDArray ret;
         switch (op) {
             case Add:
                 INDArray sum = inputs[0].dup();
                 for (int i = 1; i < inputs.length; i++) {
                     sum.addi(inputs[i]);
                 }
-                return sum;
+                ret = sum;
+                break;
             case Subtract:
                 if (inputs.length != 2)
                     throw new IllegalArgumentException("ElementWise subtraction only supports 2 inputs");
-                return inputs[0].sub(inputs[1]);
+                ret =  inputs[0].sub(inputs[1]);
+                break;
             case Product:
                 INDArray product = inputs[0].dup();
                 for (int i = 1; i < inputs.length; i++) {
                     product.muli(inputs[i]);
                 }
-                return product;
+                ret = product;
+                break;
             default:
                 throw new UnsupportedOperationException("Unknown op: " + op);
         }
+
+        Pair<INDArray, MaskState> masks = feedForwardMaskArrays(new INDArray[]{maskArray}, MaskState.Active, inputs[0].size(0));    //TODO
+        return ActivationsFactory.getInstance().create(ret, masks.getFirst(), masks.getSecond());
     }
 
-    @Override
+
     public Pair<Gradient, INDArray[]> doBackward(boolean tbptt) {
         if (!canDoBackward())
             throw new IllegalStateException("Cannot do backward pass: errors not set");
